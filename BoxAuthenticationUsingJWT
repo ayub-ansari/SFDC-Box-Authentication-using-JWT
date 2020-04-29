@@ -1,0 +1,53 @@
+public class BoxAuthenticationUsingJWT{
+    //BoxAuthenticationUsingJWT.connectWithBox();
+    public static void connectWithBox(){
+        String clientId = '6651wi15q83qvav53jznsgdswuxxxxxx';
+        String clientSecret = '1DTfOrIQF0M2YxSKmKmk9jY5abxxxxxx';
+        String endpoint = 'https://api.box.com/oauth2/token';
+        String iss = clientId;
+        String aud = endpoint;
+        String sub = '334200xxx'; //Enterprise Id
+        
+        //Long exp = DateTime.now().addhours(-8).addSeconds(30).getTime(); // Datetime.now is returning fiff time than what need JWT token 
+        Auth.Jwt jwt = new Auth.Jwt();
+        jwt.setValidityLength(60);
+        String jwtRequestd = jwt.toJSONString();
+        Map<String, Object> m = (Map<String, Object>)JSON.deserializeUntyped(jwtRequestd);
+        Long exp = (Long)m.get('exp');
+        system.debug(jwtRequestd);
+        
+        system.debug(jwt.getValidityLength());
+        // Start constructing the header and claims
+        String jwtHeader = '{"typ":"JWT","alg":"RS256"}';
+        
+        String jwtClaims = '{"iss":"' + iss +'","jti":"'+UserInfo.getUserID()+'","box_sub_type":"enterprise","sub":"' + sub + '","aud":"' + aud + '","exp":' + exp + '}';
+        system.debug(jwtClaims);
+        String jwtRequest = System.encodingUtil.base64Encode(Blob.valueOf(jwtHeader)).replace('+', '-').replace('/', '_') + '.' + System.encodingUtil.base64Encode(Blob.valueOf(jwtClaims)).replace('+', '-').replace('/', '_');
+        
+        String signature = System.encodingUtil.base64Encode(Crypto.signWithCertificate('RSA-SHA256', Blob.valueOf(jwtRequest), 'jwt')).replace('+', '-').replace('/', '_');
+        String signedJwtRequest = jwtRequest + '.' + signature;
+        
+        // The JWT is fully constructed, now it's time to make the call to get the access token.
+        
+        String payload = 'grant_type=' + System.EncodingUtil.urlEncode('urn:ietf:params:oauth:grant-type:jwt-bearer', 'UTF-8');
+        payload += '&client_id='+clientId+'&client_secret='+clientSecret;
+        payload += '&assertion=' + signedJwtRequest;
+        
+        
+        Http httpObj = new Http();
+        HttpRequest req = new HttpRequest();
+        HttpResponse res;
+        
+        
+        req.setEndpoint(endpoint);
+        req.setMethod('POST');
+        req.setHeader('Content-Type', 'application/x-www-form-urlencoded');
+        req.setBody(payload);
+        
+        res = httpObj.send(req);
+        
+        System.debug(res.getBody());
+    
+    }
+
+}
